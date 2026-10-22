@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>locaoo - Your Local Connection in China</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Chart.js for Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .scrollbar-none::-webkit-scrollbar { display: none; }
+    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+    .modal-backdrop { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased min-h-screen">
+
+  <div id="app" class="flex flex-col min-h-screen">
+
+    <!-- Toast Notification -->
+    <div v-if="toast.show" role="status" aria-live="polite" class="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-gray-900/95 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-2 text-sm font-semibold pointer-events-none">
+      <span class="text-emerald-400">✓</span>
+      <span>{{ toast.message }}</span>
+    </div>
+
+    <!-- 1. Header Navigation -->
+    <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        
+        <div @click="navigateTo('home')" class="flex items-center space-x-2 cursor-pointer">
+          <span class="text-2xl font-black tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 bg-clip-text text-transparent">
+            locaoo
+          </span>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-gray-600">
+          <button @click="navigateTo('home')" :class="activePage === 'home' ? 'text-indigo-600 font-bold' : 'hover:text-indigo-600'">
+            {{ t('nav_find_local') }}
+          </button>
+          <button @click="navigateTo('requests')" :class="activePage === 'requests' ? 'text-indigo-600 font-bold' : 'hover:text-indigo-600'">
+            {{ t('nav_requests_market') }}
+          </button>
+          <button @click="navigateTo('post_request')" :class="activePage === 'post_request' ? 'text-indigo-600 font-bold' : 'hover:text-indigo-600'">
+            {{ t('nav_post_request') }}
+          </button>
+          <button @click="navigateTo('become')" :class="activePage === 'become' ? 'text-indigo-600 font-bold' : 'hover:text-indigo-600'">
+            {{ t('nav_become_guide') }}
+          </button>
+          <button @click="navigateTo('how')" :class="activePage === 'how' ? 'text-indigo-600 font-bold' : 'hover:text-indigo-600'">
+            {{ t('nav_how_it_works') }}
+          </button>
+          <button v-if="currentUser?.isAdmin" @click="navigateTo('admin')" :class="activePage === 'admin' ? 'text-indigo-600 font-bold' : 'hover:text-indigo-600'">
+            📊 {{ t('nav_admin') }}
+          </button>
+        </nav>
+
+        <!-- Header Right Tools -->
+        <div class="flex items-center space-x-3">
+          
+          <!-- Language Selector -->
+          <div class="relative">
+            <select v-model="currentLang" class="bg-gray-100 text-xs font-semibold text-gray-700 py-1.5 px-2.5 rounded-lg border-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+              <option value="en">🌐 English (EN)</option>
+              <option value="zh">🌐 中文 (ZH)</option>
+              <option value="de">🌐 Deutsch (DE)</option>
+              <option value="fr">🌐 Français (FR)</option>
+              <option value="es">🌐 Español (ES)</option>
+              <option value="it">🌐 Italiano (IT)</option>
+              <option value="pt">🌐 Português (PT)</option>
+              <option value="nl">🌐 Nederlands (NL)</option>
+              <option value="pl">🌐 Polski (PL)</option>
+              <option value="is">🌐 Íslenska (IS)</option>
+              <option value="ru">🌐 Русский (RU)</option>
+              <option value="th">🌐 ไทย (TH)</option>
+              <option value="ms">🌐 Bahasa Melayu (MS)</option>
+              <option value="id">🌐 Bahasa Indonesia (ID)</option>
+            </select>
+          </div>
+
+          <!-- Auth Status -->
+          <div v-if="!currentUser" class="flex items-center space-x-2">
+            <button @click="openAuthModal('login')" class="px-3.5 py-1.5 text-xs font-semibold text-gray-700 hover:text-indigo-600">
+              {{ t('login') }}
+            </button>
+            <button @click="openAuthModal('signup')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-full hover:bg-indigo-700 transition shadow-sm">
+              {{ t('signup') }}
+            </button>
+          </div>
+
+          <div v-else class="flex items-center space-x-3">
+            <div @click="navigateTo('user_center')" class="flex items-center space-x-2 cursor-pointer p-1 hover:bg-gray-100 rounded-full transition">
+              <img :src="currentUser.avatar" alt="User Avatar" class="w-8 h-8 rounded-full object-cover border border-gray-200">
+              <span class="text-xs font-bold text-gray-800 hidden sm:inline">{{ currentUser.nickname }}</span>
+              <span v-if="currentUser.isStarGuide" class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-black">⭐ Star Locals</span>
+            </div>
+            <button @click="handleLogout" class="text-xs text-rose-500 hover:text-rose-700 font-semibold">
+              {{ t('logout') }}
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </header>
+
+    <!-- 2. Main View Container -->
+    <div class="flex-1">
+
+      <!-- PAGE 1: Home Page -->
+      <div v-if="activePage === 'home'">
+        <!-- Banner & Search -->
+        <section class="relative bg-slate-900 py-20 px-4 text-center text-white overflow-hidden">
+          <div class="absolute inset-0 opacity-20">
+            <img src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200" alt="Hero Background" class="w-full h-full object-cover">
+          </div>
+          <div class="relative max-w-4xl mx-auto space-y-6">
+            <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight">
+              {{ t('hero_title') }}
+            </h1>
+            <p class="text-xl font-semibold text-rose-400 tracking-wide">
+              {{ t('hero_subtitle') }}
+            </p>
+            <p class="text-base sm:text-lg text-gray-300 max-w-3xl mx-auto">
+              {{ t('hero_desc') }}
+            </p>
+
+            <!-- Search Bar -->
+            <div class="flex flex-col sm:flex-row items-center bg-white p-2 rounded-2xl shadow-xl text-gray-800 space-y-2 sm:space-y-0 sm:space-x-2 max-w-2xl mx-auto">
+              <div class="flex-1 flex items-center px-4 w-full">
+                <span class="text-gray-400 mr-2">🔍</span>
+                <input v-model="searchKeyword" type="text" :placeholder="t('search_placeholder')" class="w-full py-3 focus:outline-none text-sm bg-transparent">
+              </div>
+              <button @click="trackEvent('search')" class="w-full sm:w-auto px-8 py-3 bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-xl transition shadow-md">
+                {{ t('search_btn') }}
+              </button>
+            </div>
+
+            <!-- Popular City Tag Highlights -->
+            <div class="pt-2">
+              <div class="text-xs text-gray-400 font-medium mb-2.5">{{ t('popular_cities') }}</div>
+              <div class="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto">
+                <button v-for="city in hotCities" :key="city.name" @click="searchKeyword = city.searchKey; trackEvent('filter_city')" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full text-xs text-gray-200 transition flex items-center space-x-1.5 backdrop-blur-sm">
+                  <span class="font-bold text-white">{{ city.name }}</span>
+                  <span class="text-rose-300 text-[11px]">— {{ city.desc }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Grid & Filtering -->
+        <main class="max-w-7xl mx-auto px-4 py-12">
+          <div class="flex items-center space-x-2 overflow-x-auto pb-4 mb-8 scrollbar-none">
+            <button v-for="tag in tagsList" :key="tag" @click="selectedTag = tag; trackEvent('filter_tag')" :class="['px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition', selectedTag === tag ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200']">
+              {{ tag }}
+            </button>
+          </div>
+
+          <div v-if="filteredGuides.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div v-for="guide in filteredGuides" :key="guide.id" class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-100 flex flex-col relative">
+              
+              <!-- Active Status Badge -->
+              <div class="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/90 backdrop-blur-sm shadow-sm flex items-center space-x-1">
+                <span :class="guide.activityStatus?.color || 'text-green-500'">●</span>
+                <span class="text-gray-700">{{ guide.activityStatus?.text || 'Online' }}</span>
+              </div>
+
+              <div @click="navigateTo('profile', guide.id)" class="relative h-48 bg-gray-200 cursor-pointer group">
+                <img :src="guide.cover" :alt="guide.name" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                <div class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-gray-800 shadow-sm">
+                  ${{ guide.rate }} <span class="font-normal text-gray-500">/ hr</span>
+                </div>
+              </div>
+
+              <div class="p-5 flex-1 flex flex-col justify-between">
+                <div>
+                  <div @click="navigateTo('profile', guide.id)" class="flex items-center space-x-3 mb-3 cursor-pointer">
+                    <img :src="guide.avatar" :alt="guide.name" class="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm" />
+                    <div>
+                      <h3 class="font-bold text-lg text-gray-900 flex items-center hover:text-indigo-600 transition">
+                        {{ guide.name }}
+                        <span v-if="guide.isStarGuide" class="ml-1 text-amber-500 text-xs font-black" title="Star Locals">⭐ Star Locals</span>
+                        <span v-else-if="guide.verified" class="ml-1 text-blue-500 text-sm" title="Verified Guide">✓</span>
+                      </h3>
+                      <p class="text-xs text-gray-500">📍 {{ guide.city }}</p>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center space-x-1 text-sm text-gray-600 mb-3">
+                    <span class="text-amber-400">★</span>
+                    <span class="font-semibold text-gray-900">{{ guide.rating }}</span>
+                    <span class="text-gray-400">({{ guide.reviewsCount }} reviews)</span>
+                  </div>
+
+                  <!-- Languages Spoken Tag -->
+                  <div class="text-xs text-gray-500 mb-3 flex items-center space-x-1 flex-wrap gap-1">
+                    <span class="font-bold text-gray-700">Languages:</span>
+                    <span v-for="lang in guide.languages" :key="lang" class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[11px] font-medium">{{ lang }}</span>
+                  </div>
+
+                  <div class="flex flex-wrap gap-1.5 mb-4">
+                    <span v-for="t in guide.tags" :key="t" class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-md text-xs font-medium">{{ t }}</span>
+                  </div>
+                </div>
+
+                <div class="pt-4 border-t border-gray-100 flex items-center space-x-2">
+                  <button @click="navigateTo('profile', guide.id)" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-sm transition">
+                    {{ t('view_profile') }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="text-center py-16 text-gray-400">
+            <p class="text-lg font-medium">{{ t('no_guides_found') }}</p>
+            <button @click="searchKeyword = ''; selectedTag = 'All';" class="mt-4 text-sm text-indigo-600 font-semibold hover:underline">{{ t('reset_search') }}</button>
+          </div>
+        </main>
+      </div>
+
+      <!-- PAGE 2: Profile View Page -->
+      <div v-if="activePage === 'profile' && selectedGuide" class="bg-gray-50 pb-20">
+        <div :style="{ backgroundImage: `url('${selectedGuide.cover}')` }" class="relative h-72 sm:h-96 w-full bg-slate-800 bg-cover bg-center">
+          <div class="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/30 to-transparent"></div>
+          <button @click="navigateTo('home')" class="absolute top-6 left-6 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-full text-xs font-semibold transition">
+            ← {{ t('back_to_search') }}
+          </button>
+        </div>
+
+        <div class="max-w-6xl mx-auto px-4 -mt-24 relative z-10">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-2 space-y-6">
+              <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 relative">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
+                  <img :src="selectedGuide.avatar" alt="" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover border-4 border-white shadow-md">
+                  <div class="space-y-1.5 flex-1">
+                    <div class="flex items-center space-x-2">
+                      <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">{{ selectedGuide.name }}</h1>
+                      <span v-if="selectedGuide.isStarGuide" class="text-amber-500 font-black text-sm">⭐ Star Locals</span>
+                    </div>
+                    <p class="text-sm font-medium text-gray-500">📍 {{ selectedGuide.city }}</p>
+                    <div class="flex items-center space-x-2 text-sm pt-1">
+                      <span class="text-amber-400 text-base">★</span>
+                      <span class="font-bold text-gray-900">{{ selectedGuide.rating }}</span>
+                      <span class="text-gray-400">({{ selectedGuide.reviewsCount }} reviews)</span>
+                      <span class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600 ml-2">{{ selectedGuide.activityStatus?.text }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Languages Spoken Card -->
+              <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 space-y-3">
+                <h2 class="text-lg font-bold text-gray-900">🌐 Languages Spoken</h2>
+                <div class="flex flex-wrap gap-2">
+                  <span v-for="lang in selectedGuide.languages" :key="lang" class="px-3.5 py-1.5 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-semibold border border-indigo-100">{{ lang }}</span>
+                </div>
+              </div>
+
+              <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 space-y-4">
+                <h2 class="text-lg font-bold text-gray-900">{{ t('about_me') }}</h2>
+                <p class="text-sm text-gray-600 leading-relaxed">{{ selectedGuide.bio }}</p>
+              </div>
+
+              <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 space-y-4">
+                <h2 class="text-lg font-bold text-gray-900">{{ t('services_provided') }}</h2>
+                <div class="flex flex-wrap gap-2">
+                  <span v-for="tag in selectedGuide.tags" :key="tag" class="px-3.5 py-1.5 bg-gray-100 text-gray-700 rounded-xl text-xs font-semibold">{{ tag }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Panel: Native Contact Section -->
+            <div class="lg:col-span-1">
+              <div class="bg-white rounded-3xl p-6 shadow-md border border-gray-100 sticky top-24 space-y-6">
+                <div class="flex items-baseline justify-between border-b border-gray-100 pb-4">
+                  <span class="text-xs uppercase font-bold text-gray-400 tracking-wider">{{ t('hourly_rate') }}</span>
+                  <div>
+                    <span class="text-3xl font-black text-indigo-600">${{ selectedGuide.rate }}</span>
+                    <span class="text-xs text-gray-400 font-normal"> / hour</span>
+                  </div>
+                </div>
+
+                <!-- Star Locals: Unmasked Contacts Directly Shown -->
+                <div v-if="selectedGuide.isStarGuide" class="space-y-3 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                  <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">✨ Star Locals Direct Contacts</h4>
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="text-gray-500 text-xs">WeChat:</span>
+                    <div class="flex items-center space-x-2">
+                      <span class="font-mono font-bold text-indigo-600 bg-white px-2 py-0.5 rounded text-xs border border-indigo-100">{{ selectedGuide.contacts?.wechat }}</span>
+                      <button @click="copyToClipboard(selectedGuide.contacts?.wechat)" class="text-xs text-gray-400 hover:text-indigo-600" title="Copy">📋</button>
+                    </div>
+                  </div>
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="text-gray-500 text-xs">WhatsApp:</span>
+                    <div class="flex items-center space-x-2">
+                      <span class="font-mono font-bold text-gray-800 text-xs">{{ selectedGuide.contacts?.whatsapp }}</span>
+                      <button @click="copyToClipboard(selectedGuide.contacts?.whatsapp)" class="text-xs text-gray-400 hover:text-indigo-600" title="Copy">📋</button>
+                    </div>
+                  </div>
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="text-gray-500 text-xs">Email:</span>
+                    <div class="flex items-center space-x-2">
+                      <span class="font-mono font-bold text-gray-800 text-xs">{{ selectedGuide.contacts?.email }}</span>
+                      <button @click="copyToClipboard(selectedGuide.contacts?.email)" class="text-xs text-gray-400 hover:text-indigo-600" title="Copy">📋</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Regular Guide: Masked Contacts + Reminder Button -->
+                <div v-else class="space-y-4">
+                  <div class="space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                    <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Direct Contacts (Masked)</h4>
+                    <div class="flex justify-between items-center text-sm">
+                      <span class="text-gray-500 text-xs">WeChat:</span>
+                      <span class="font-mono font-bold text-gray-400 bg-gray-200/60 px-2 py-0.5 rounded text-xs">wx****88</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                      <span class="text-gray-500 text-xs">WhatsApp:</span>
+                      <span class="font-mono font-bold text-gray-400 text-xs">+86 138 **** ****</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                      <span class="text-gray-500 text-xs">Email:</span>
+                      <span class="font-mono font-bold text-gray-400 text-xs">gu***@locaoo.com</span>
+                    </div>
+                  </div>
+
+                  <button @click="handleRemindGuide(selectedGuide)" class="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-2xl shadow-md transition flex items-center justify-center space-x-2">
+                    <span>🔔</span>
+                    <span>{{ t('remind_guide_open') }}</span>
+                  </button>
+                  <p class="text-[11px] text-gray-400 text-center leading-relaxed">
+                    {{ t('remind_guide_tip') }}
+                  </p>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 3: Requests Marketplace -->
+      <div v-if="activePage === 'requests'" class="max-w-6xl mx-auto px-4 py-12">
+        <div class="flex justify-between items-center mb-8">
+          <div>
+            <h1 class="text-3xl font-extrabold text-gray-900">{{ t('traveler_requests_title') }}</h1>
+            <p class="text-sm text-gray-500 mt-1">{{ t('traveler_requests_subtitle') }}</p>
+          </div>
+          <button @click="navigateTo('post_request')" class="px-5 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition">
+            + {{ t('nav_post_request') }}
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <article v-for="req in requests" :key="req.id" @click="openRequestDetailModal(req)" class="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 cursor-pointer transition duration-200">
+            <div class="relative h-44 sm:h-48 overflow-hidden bg-slate-100">
+              <img :src="getRequestImage(req.city)" :alt="req.city" class="w-full h-full object-cover transition duration-300 hover:scale-105">
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent"></div>
+              <span class="absolute left-4 bottom-4 px-3 py-1.5 bg-white/95 text-indigo-700 text-xs font-bold rounded-full shadow-sm">📍 {{ req.city }}</span>
+              <span class="absolute top-3 right-3 px-3 py-1.5 bg-rose-500 text-white text-xs font-extrabold rounded-full shadow">$ {{ req.budget }} budget</span>
+            </div>
+            <div class="p-5 sm:p-6 space-y-4">
+              <h3 class="font-extrabold text-lg text-gray-900 leading-snug">{{ req.title }}</h3>
+              <p class="text-sm text-gray-600 line-clamp-2 leading-relaxed">{{ req.description }}</p>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div class="flex items-center gap-2.5 rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-3">
+                  <span class="text-xl">📅</span><div class="min-w-0"><div class="text-[10px] uppercase tracking-wide font-bold text-indigo-500">Date</div><div class="text-xs font-bold text-indigo-950 leading-snug">{{ req.date }}</div></div>
+                </div>
+                <div class="flex items-center gap-2.5 rounded-xl bg-sky-50 border border-sky-100 px-3 py-3">
+                  <span class="text-xl">👥</span><div><div class="text-[10px] uppercase tracking-wide font-bold text-sky-600">People</div><div class="text-sm font-extrabold text-sky-950">{{ req.travelersCount || 1 }} {{ (req.travelersCount || 1) === 1 ? 'person' : 'people' }}</div></div>
+                </div>
+                <div class="flex items-center gap-2.5 rounded-xl bg-rose-50 border border-rose-100 px-3 py-3">
+                  <span class="text-xl">💰</span><div><div class="text-[10px] uppercase tracking-wide font-bold text-rose-500">Budget</div><div class="text-sm font-extrabold text-rose-700">${{ req.budget }}</div></div>
+                </div>
+              </div>
+              <div class="pt-3 border-t border-gray-100 flex items-center justify-between gap-3">
+                <div class="text-xs text-gray-400">Posted by <span class="font-semibold text-gray-600">{{ req.authorName }}</span></div>
+                <span class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition inline-block whitespace-nowrap">{{ t('view_request_detail') }} →</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <!-- PAGE 4: Post Request Page -->
+      <div v-if="activePage === 'post_request'" class="max-w-3xl mx-auto px-4 py-12">
+        <div class="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 space-y-6">
+          <h1 class="text-2xl font-extrabold text-gray-900">{{ t('post_request_title') }}</h1>
+          
+          <form @submit.prevent="submitRequest" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Request Title</label>
+              <input v-model="newRequest.title" required type="text" placeholder="e.g. Need guide for Yiwu Wholesale Market negotiations" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Target City</label>
+                <input v-model="newRequest.city" required type="text" placeholder="e.g. Yiwu" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Travelers Count</label>
+                <input v-model="newRequest.travelersCount" required type="number" min="1" placeholder="2" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Budget ($ USD)</label>
+                <input v-model="newRequest.budget" required type="number" placeholder="100" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Date / Schedule</label>
+              <input v-model="newRequest.date" required type="text" placeholder="e.g. Oct 12 - Oct 15, 2026" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Detailed Requirements</label>
+              <textarea v-model="newRequest.description" rows="4" required placeholder="Describe what you need support with..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600"></textarea>
+            </div>
+
+            <div class="p-4 bg-amber-50 border border-amber-100 rounded-2xl space-y-3">
+              <h4 class="text-xs font-bold text-amber-800 uppercase tracking-wider">🔒 Private Contact Info (Only Star Locals can view)</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input v-model="newRequest.wechat" type="text" placeholder="WeChat ID" class="px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs">
+                <input v-model="newRequest.whatsapp" type="text" placeholder="WhatsApp" class="px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs">
+                <input v-model="newRequest.email" type="email" placeholder="Email" class="px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs">
+              </div>
+            </div>
+
+            <button type="submit" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md transition">
+              {{ t('submit_request_btn') }}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- PAGE 5: User Center -->
+      <div v-if="activePage === 'user_center' && currentUser" class="max-w-4xl mx-auto px-4 py-12 space-y-8">
+        <div class="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 space-y-6">
+          <h1 class="text-2xl font-extrabold text-gray-900">{{ t('user_center_title') }}</h1>
+          
+          <div class="space-y-3">
+            <label class="block text-xs font-bold text-gray-500 uppercase">Choose your avatar</label>
+            <div class="flex flex-wrap gap-3">
+              <button v-for="(avatar, index) in avatarOptions" :key="avatar.label" type="button" @click="currentUser.avatar = avatar.src" :aria-label="avatar.label" :class="['w-[68px] h-[68px] rounded-2xl border-2 flex items-center justify-center transition', currentUser.avatar === avatar.src ? 'border-indigo-600 ring-4 ring-indigo-100 shadow-md' : 'border-gray-200 hover:border-indigo-300']">
+                <img :src="avatar.src" :alt="avatar.label" class="w-14 h-14 rounded-xl">
+              </button>
+            </div>
+            <p class="text-xs text-gray-400">Choose one of the 5 preset avatars. No image URL needed.</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Nickname</label>
+              <input v-model="currentUser.nickname" type="text" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Email</label>
+              <input :value="currentUser.email" disabled type="text" class="w-full px-4 py-2.5 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl text-sm">
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-gray-100 flex justify-between items-center">
+            <div>
+              <span class="text-xs text-gray-500">Account Status: </span>
+              <span v-if="currentUser.isStarGuide" class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded">⭐ Star Locals (Subscribed)</span>
+              <span v-else class="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded">Regular Guide / User</span>
+            </div>
+            <button @click="saveUserProfile" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition">
+              Save Changes
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 space-y-4">
+          <h2 class="text-xl font-bold text-gray-900">🔔 开放付费与查看提醒 (Open Paid & View Reminders)</h2>
+          <p class="text-xs text-gray-500">当游客点击“提醒向导开放”后，向导在此处可快速升级 Star Locals 权限，解锁游客查看权限。</p>
+          <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex justify-between items-center">
+            <div>
+              <h4 class="font-bold text-xs text-amber-900">待开放状态向导资料</h4>
+              <p class="text-[11px] text-amber-700 mt-0.5">收到多位游客的提醒开放联系方式申请。</p>
+            </div>
+            <button @click="openSubscriptionModal" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition">
+              立即升级 Star Locals
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 space-y-4">
+          <h2 class="text-xl font-bold text-gray-900">{{ t('my_posted_requests') }}</h2>
+          <div v-if="myRequests.length > 0" class="space-y-3">
+            <div v-for="req in myRequests" :key="req.id" class="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex justify-between items-center">
+              <div>
+                <h4 class="font-bold text-sm text-gray-900">{{ req.title }}</h4>
+                <p class="text-xs text-gray-500">📍 {{ req.city }} | 👥 {{ req.travelersCount || 1 }} Travelers | 📅 {{ req.date }} | Budget: ${{ req.budget }}</p>
+              </div>
+              <span class="text-xs font-semibold text-green-600 bg-green-50 px-2.5 py-1 rounded-lg">Active</span>
+            </div>
+          </div>
+          <p v-else class="text-xs text-gray-400 italic">You haven't posted any requests yet.</p>
+        </div>
+      </div>
+
+      <!-- PAGE 6: Become a Guide (Direct Registration Form + Card Toggle Interactive Star Upgrade) -->
+      <div v-if="activePage === 'become'" class="max-w-3xl mx-auto px-4 py-12">
+        <div class="bg-white rounded-3xl p-8 sm:p-10 shadow-sm border border-gray-100 space-y-8">
+          <div class="text-center space-y-2">
+            <h1 class="text-3xl font-extrabold text-gray-900">{{ t('become_guide_title') }}</h1>
+            <p class="text-gray-500 text-sm">Fill out your profile below to register as a local guide. Paid upgrade to Star Locals is optional.</p>
+          </div>
+
+          <form @submit.prevent="submitBecomeGuide" class="space-y-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Your Full Name</label>
+                <input v-model="becomeForm.name" required type="text" placeholder="e.g. Elena Rostova" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-1">City & Province</label>
+                <input v-model="becomeForm.city" required type="text" placeholder="e.g. Shanghai, China" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Hourly Rate ($ USD)</label>
+                <input v-model="becomeForm.rate" required type="number" min="5" placeholder="25" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Languages Spoken (Comma separated)</label>
+                <input v-model="becomeForm.languagesStr" required type="text" placeholder="English, Mandarin, Japanese" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Cover Photo</label>
+              <label class="group flex flex-col items-center justify-center w-full min-h-36 rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-indigo-50/50 hover:border-indigo-300 cursor-pointer overflow-hidden transition">
+                <img v-if="becomeForm.cover" :src="becomeForm.cover" alt="Cover preview" class="w-full h-44 object-cover">
+                <div v-else class="py-7 text-center px-4">
+                  <span class="text-3xl">📷</span>
+                  <p class="mt-2 text-sm font-bold text-gray-700">Upload a cover photo</p>
+                  <p class="mt-1 text-xs text-gray-400">Choose an image from your device · JPG, PNG, WebP (max 2 MB)</p>
+                </div>
+                <input type="file" accept="image/*" class="hidden" @change="handleCoverUpload">
+              </label>
+              <div v-if="becomeForm.cover" class="flex items-center justify-between">
+                <p class="text-xs text-green-600 font-medium">✓ Cover photo selected</p>
+                <button type="button" @click="becomeForm.cover = ''" class="text-xs text-rose-500 hover:underline">Remove photo</button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-700 uppercase mb-1">About Me / Bio</label>
+              <textarea v-model="becomeForm.bio" rows="4" required placeholder="Describe your background and local expertise..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600"></textarea>
+            </div>
+
+            <div class="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl space-y-3">
+              <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider">📞 Your Direct Contact Info</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input v-model="becomeForm.wechat" required type="text" placeholder="WeChat ID" class="px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs">
+                <input v-model="becomeForm.whatsapp" required type="text" placeholder="WhatsApp" class="px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs">
+                <input v-model="becomeForm.email" required type="email" placeholder="Email" class="px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs">
+              </div>
+            </div>
+
+            <!-- Optional Star Locals Card Toggle Section (保持与其他 UI 颜色与交互完全统一) -->
+            <div class="p-5 bg-amber-50/60 border border-amber-200/80 rounded-2xl space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="font-bold text-sm text-amber-900 flex items-center gap-1.5">⭐ Unlock Star Local Privileges</h4>
+                  <p class="text-xs text-amber-700 mt-0.5">Upgrade to display your direct contact info. Optional.</p>
+                </div>
+                <span class="text-[11px] text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full font-medium">Optional</span>
+              </div>
+
+              <!-- 卡片式反选网格：点击选中，再次点击当前卡片可取消 -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                
+                <!-- 月度计划卡片 -->
+                <div 
+                  @click="handleCardToggle('monthly')"
+                  :class="[
+                    'cursor-pointer p-4 rounded-xl border transition-all relative bg-white select-none',
+                    becomeForm.subPlan === 'monthly' 
+                      ? 'border-amber-600 ring-2 ring-amber-500/20 shadow-sm bg-amber-50/20' 
+                      : 'border-amber-200/80 hover:border-amber-400'
+                  ]"
+                >
+                  <div class="flex justify-between items-start mb-1">
+                    <span class="text-sm font-bold text-gray-900">2.99元 / 月</span>
+                    <div v-if="becomeForm.subPlan === 'monthly'" class="w-4 h-4 bg-amber-600 text-white rounded-full flex items-center justify-center text-[10px]">✓</div>
+                  </div>
+                  <div class="text-[11px] font-medium text-gray-400 mb-2">Monthly Plan</div>
+                  <p class="text-[11px] text-amber-800 bg-amber-50/80 p-1.5 rounded leading-snug">Low risk, cancel anytime. Try it for one booking.</p>
+                </div>
+
+                <!-- 年度计划卡片 -->
+                <div 
+                  @click="handleCardToggle('yearly')"
+                  :class="[
+                    'cursor-pointer p-4 rounded-xl border transition-all relative bg-white select-none',
+                    becomeForm.subPlan === 'yearly' 
+                      ? 'border-amber-600 ring-2 ring-amber-500/20 shadow-sm bg-amber-50/20' 
+                      : 'border-amber-200/80 hover:border-amber-400'
+                  ]"
+                >
+                  <span class="absolute -top-2.5 right-3 bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                    BEST VALUE
+                  </span>
+                  <div class="flex justify-between items-start mb-1">
+                    <span class="text-sm font-bold text-gray-900">19.90元 / 年</span>
+                    <div v-if="becomeForm.subPlan === 'yearly'" class="w-4 h-4 bg-amber-600 text-white rounded-full flex items-center justify-center text-[10px]">✓</div>
+                  </div>
+                  <div class="text-[11px] font-medium text-gray-400 mb-2">Yearly Plan</div>
+                  <p class="text-[11px] text-amber-800 bg-amber-50/80 p-1.5 rounded leading-snug">Save 44%! Best choice for steady client flow.</p>
+                </div>
+
+              </div>
+
+              <div class="text-right text-[11px] text-amber-800 font-medium pt-1">
+                Current Status: <span class="font-bold underline">{{ becomeForm.subPlan ? (becomeForm.subPlan === 'monthly' ? 'Monthly Star Local (2.99元)' : 'Yearly Star Local (19.90元)') : 'Free Guide (No Upgrade)' }}</span>
+              </div>
+            </div>
+
+            <button type="submit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md transition">
+              <span v-if="becomeForm.subPlan">确认升级并注册（{{ becomeForm.subPlan === 'monthly' ? '¥2.99/月' : '¥19.90/年' }}）</span>
+              <span v-else>免费注册</span>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- PAGE 7: How It Works -->
+      <div v-if="activePage === 'how'" class="max-w-5xl mx-auto px-4 py-12 space-y-12">
+        <div class="text-center space-y-3">
+          <h1 class="text-3xl font-extrabold text-gray-900">{{ t('how_title') }}</h1>
+          <p class="text-gray-500 max-w-xl mx-auto text-sm">{{ t('how_desc') }}</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4 text-center">
+            <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-black mx-auto">1</div>
+            <h3 class="font-bold text-gray-900 text-base">Find & Filter</h3>
+            <p class="text-xs text-gray-500 leading-relaxed">Search by city or activity tag like Shopping, Business Negotiations, or Dining to find local assistants.</p>
+          </div>
+          <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4 text-center">
+            <div class="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-2xl font-black mx-auto">2</div>
+            <h3 class="font-bold text-gray-900 text-base">Direct Connect</h3>
+            <p class="text-xs text-gray-500 leading-relaxed">Get direct WeChat, WhatsApp, or Email contacts. Star Locals display full unmasked contacts.</p>
+          </div>
+          <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4 text-center">
+            <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl font-black mx-auto">3</div>
+            <h3 class="font-bold text-gray-900 text-base">Seamless Trip</h3>
+            <p class="text-xs text-gray-500 leading-relaxed">Coordinate directly with your local assistant for customized itineraries, translation, and local support.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 8: Admin Analytics Dashboard -->
+      <div v-if="activePage === 'admin' && currentUser?.isAdmin" class="max-w-6xl mx-auto px-4 py-12 space-y-8">
+        <div class="flex justify-between items-center">
+          <h1 class="text-3xl font-black text-gray-900">📊 Admin Analytics Dashboard</h1>
+          <span class="text-xs text-gray-400">Local Tracking System</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+            <span class="text-xs text-gray-400 font-semibold">Total Page Views (PV)</span>
+            <div class="text-2xl font-black text-indigo-600">{{ analytics.pv }}</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+            <span class="text-xs text-gray-400 font-semibold">Contact Clicks</span>
+            <div class="text-2xl font-black text-rose-500">{{ analytics.contactClicks }}</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+            <span class="text-xs text-gray-400 font-semibold">Total Requests</span>
+            <div class="text-2xl font-black text-purple-600">{{ requests.length }}</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+            <span class="text-xs text-gray-400 font-semibold">Star Subscriptions</span>
+            <div class="text-2xl font-black text-amber-500">{{ analytics.subscriptions }}</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+          <h3 class="font-bold text-gray-800 text-sm">Event Activity Visualization</h3>
+          <canvas id="adminChart" class="w-full max-h-80"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 3. Modals Container -->
+
+    <!-- Request Detail Modal -->
+    <div v-if="showRequestDetailModal && activeRequest" class="fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl max-w-lg w-full p-8 shadow-2xl relative space-y-6">
+        <button @click="showRequestDetailModal = false" class="absolute top-5 right-5 text-gray-400 text-lg font-bold">✕</button>
+
+        <div class="space-y-2">
+          <div class="flex items-center space-x-2">
+            <span class="px-2.5 py-1 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-lg">{{ activeRequest.city }}</span>
+            <span class="text-xs text-gray-400">📅 {{ activeRequest.date }}</span>
+            <span class="text-xs text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded">👥 {{ activeRequest.travelersCount || 1 }} Travelers</span>
+          </div>
+          <h3 class="text-xl font-extrabold text-gray-900">{{ activeRequest.title }}</h3>
+          <p class="text-xs text-gray-600 leading-relaxed">{{ activeRequest.description }}</p>
+          <div class="text-xs text-gray-400 pt-1">Posted by: <span class="font-bold text-gray-700">{{ activeRequest.authorName }}</span> (Budget: <span class="text-rose-500 font-bold">${{ activeRequest.budget }}</span>)</div>
+        </div>
+
+        <!-- Traveler Contact Section -->
+        <div class="border-t border-gray-100 pt-4 space-y-3">
+          <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Traveler Contact Info</h4>
+          
+          <div v-if="currentUser?.isStarGuide" class="space-y-3 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-gray-500 text-xs">WeChat:</span>
+              <div class="flex items-center space-x-2">
+                <span class="font-mono font-bold text-indigo-600 bg-white px-2 py-0.5 rounded text-xs border border-indigo-100">{{ activeRequest.wechat }}</span>
+                <button @click="copyToClipboard(activeRequest.wechat)" class="text-xs text-gray-400 hover:text-indigo-600" title="Copy">📋</button>
+              </div>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-gray-500 text-xs">WhatsApp:</span>
+              <div class="flex items-center space-x-2">
+                <span class="font-mono font-bold text-gray-800 text-xs">{{ activeRequest.whatsapp }}</span>
+                <button @click="copyToClipboard(activeRequest.whatsapp)" class="text-xs text-gray-400 hover:text-indigo-600" title="Copy">📋</button>
+              </div>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-gray-500 text-xs">Email:</span>
+              <div class="flex items-center space-x-2">
+                <span class="font-mono font-bold text-gray-800 text-xs">{{ activeRequest.email }}</span>
+                <button @click="copyToClipboard(activeRequest.email)" class="text-xs text-gray-400 hover:text-indigo-600" title="Copy">📋</button>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-gray-500 text-xs">WeChat:</span>
+              <span class="font-mono font-bold text-gray-400 bg-gray-200/60 px-2 py-0.5 rounded text-xs">wx****88</span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-gray-500 text-xs">WhatsApp:</span>
+              <span class="font-mono font-bold text-gray-400 text-xs">+1 415 ****</span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-gray-500 text-xs">Email:</span>
+              <span class="font-mono font-bold text-gray-400 text-xs">ma***@example.com</span>
+            </div>
+            <div class="pt-2 text-center">
+              <p class="text-[11px] text-amber-600 font-semibold mb-2">⭐ Upgrade to Star Locals to view full traveler contact details.</p>
+              <button @click="showRequestDetailModal = false; openSubscriptionModal();" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow transition">
+                Upgrade Star Locals Now
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Star Locals Subscription Modal -->
+    <div v-if="showSubscriptionModal" class="fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative space-y-6">
+        <button @click="showSubscriptionModal = false" class="absolute top-4 right-4 text-gray-400 text-lg font-bold">✕</button>
+
+        <div class="text-center space-y-1">
+          <h3 class="text-xl font-extrabold text-gray-900">⭐ Upgrade to Star Locals</h3>
+          <p class="text-xs text-gray-500">Unlock traveler request contacts & unmasked profile contacts.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div @click="subPlan = 'monthly'" :class="['p-4 rounded-2xl border-2 cursor-pointer text-center space-y-1 transition', subPlan === 'monthly' ? 'border-indigo-600 bg-indigo-50/50' : 'border-gray-200']">
+            <div class="text-xs font-bold text-gray-500">Monthly</div>
+            <div class="text-2xl font-black text-indigo-600">2.99元</div>
+            <div class="text-[10px] text-gray-400">/ 月</div>
+          </div>
+          <div @click="subPlan = 'yearly'" :class="['p-4 rounded-2xl border-2 cursor-pointer text-center space-y-1 transition relative', subPlan === 'yearly' ? 'border-indigo-600 bg-indigo-50/50' : 'border-gray-200']">
+            <span class="absolute -top-2.5 right-2 bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">SAVE</span>
+            <div class="text-xs font-bold text-gray-500">Yearly</div>
+            <div class="text-2xl font-black text-indigo-600">19.90元</div>
+            <div class="text-[10px] text-gray-400">/ 年</div>
+          </div>
+        </div>
+
+        <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center space-y-3">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=alipay_mock_star_locals" alt="Alipay QR" class="w-32 h-32 mx-auto border rounded-xl">
+          <p class="text-[11px] text-gray-400">Scan QR Code with Alipay to Subscribe</p>
+        </div>
+
+        <button @click="confirmStarSubscription" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition">
+          I Have Completed Payment (Simulate)
+        </button>
+      </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div v-if="showAuthModal" class="fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl relative space-y-6">
+        <button @click="showAuthModal = false" class="absolute top-5 right-5 text-gray-400 text-lg font-bold">✕</button>
+
+        <div class="text-center space-y-1">
+          <h3 class="text-2xl font-black text-gray-900">{{ authMode === 'signup' ? t('signup') : t('login') }}</h3>
+          <p class="text-xs text-gray-500">Welcome to locaoo</p>
+        </div>
+
+        <form @submit.prevent="handleAuthSubmit" class="space-y-4">
+          <div v-if="authMode === 'signup'">
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nickname</label>
+            <input v-model="authForm.nickname" required type="text" placeholder="John Doe" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Email Address</label>
+            <input v-model="authForm.email" required type="email" placeholder="yourname@example.com" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Password</label>
+            <input v-model="authForm.password" required type="password" placeholder="••••••••" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-indigo-600">
+          </div>
+
+          <button type="submit" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md transition mt-2">
+            {{ authMode === 'signup' ? t('signup') : t('login') }}
+          </button>
+        </form>
+
+        <div class="text-center text-xs text-gray-500">
+          <span>{{ authMode === 'signup' ? 'Already have an account?' : "Don't have an account?" }}</span>
+          <button @click="authMode = authMode === 'signup' ? 'login' : 'signup'" class="text-indigo-600 font-bold ml-1 hover:underline">
+            {{ authMode === 'signup' ? t('login' ) : t('signup') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-100 py-8 text-center text-xs text-gray-400 mt-auto">
+      <p>© 2026 locaoo. Your local connection in China. All rights reserved.</p>
+    </footer>
+
+  </div>
+
+  <!-- Vue 3 Application Script -->
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    const i18n = {
+      en: {
+        nav_find_local: 'Find a Local',
+        nav_requests_market: 'Traveler Requests',
+        nav_post_request: 'Post a Request',
+        nav_become_guide: 'Become a Guide',
+        nav_how_it_works: 'How it works',
+        nav_admin: 'Admin Analytics',
+        hero_title: 'Explore cities with locaoo',
+        hero_subtitle: 'Your local connection in China.',
+        hero_desc: 'Find a local person to accompany you for shopping, dining, business negotiations, medical treatment, and attending exhibitions.',
+        search_placeholder: "Search by city or guide's name... (e.g. Dongguan, Elena)",
+        search_btn: 'Search',
+        popular_cities: 'Popular Destinations',
+        view_profile: 'View Profile',
+        remind_guide_open: 'Remind Guide to Open',
+        remind_guide_tip: 'Same traveler can send reminder once per 24 hours. Sent to guide email in daily digest and backend notification.',
+        no_guides_found: 'No locaoo guides found matching your search.',
+        reset_search: 'Reset search filters',
+        back_to_search: 'Back to Search',
+        about_me: 'About Me',
+        services_provided: 'Services Provided',
+        hourly_rate: 'Hourly Rate',
+        login: 'Log in',
+        signup: 'Sign up',
+        logout: 'Log out',
+        star_locals: 'Star Locals',
+        traveler_requests_title: 'Traveler Requests Market',
+        traveler_requests_subtitle: 'Browse requests submitted by international travelers looking for local assistance.',
+        view_request_detail: 'View Details',
+        post_request_title: 'Post Your Travel / Business Request',
+        submit_request_btn: 'Submit Request Now',
+        user_center_title: 'User Center Settings',
+        my_posted_requests: 'My Posted Requests',
+        become_guide_title: 'Become a locaoo Local Guide',
+        how_title: 'How locaoo Works',
+        how_desc: 'Connecting international travelers with local assistants in China effortlessly.'
+      },
+      zh: {
+        nav_find_local: '寻找本地向导',
+        nav_requests_market: '游客需求大厅',
+        nav_post_request: '发布需求',
+        nav_become_guide: '成为本地向导',
+        nav_how_it_works: '平台原理',
+        nav_admin: '数据后台',
+        hero_title: '与 locaoo 一起探索中国城市',
+        hero_subtitle: '您在中国最值得信赖的本地连接。',
+        hero_desc: '寻找一位当地助手机构陪同您购物、用餐、商务谈判、就医及参加各类展会。',
+        search_placeholder: '按城市或向导姓名搜索... (例如: 东莞、Elena)',
+        search_btn: '搜索',
+        popular_cities: '热门目的地',
+        view_profile: '查看主页',
+        remind_guide_open: '提醒向导开放',
+        remind_guide_tip: '同一游客对同一未付费向导24小时可提醒一次，将合并至每日汇总邮件及后台站内信通知。',
+        no_guides_found: '未找到符合条件的向导。',
+        reset_search: '重置搜索条件',
+        back_to_search: '返回搜索',
+        about_me: '关于我',
+        services_provided: '服务项目',
+        hourly_rate: '时薪',
+        login: '登录',
+        signup: '注册',
+        logout: '退出登录',
+        star_locals: 'Star Locals',
+        traveler_requests_title: '国际游客需求大厅',
+        traveler_requests_subtitle: '查看海外游客发布的陪同与商务需求',
+        view_request_detail: '查看详情',
+        post_request_title: '发布您的行程/商务需求',
+        submit_request_btn: '立即发布需求',
+        user_center_title: '个人中心设置',
+        my_posted_requests: '我发布的需求',
+        become_guide_title: '申请成为 locaoo 本地向导',
+        how_title: 'locaoo 平台运作原理',
+        how_desc: '高效无缝连接海外游客与中国本土优质助手。'
+      }
+    };
+
+    createApp({
+      setup() {
+        const activePage = ref('home');
+        const currentLang = ref('en');
+        const searchKeyword = ref('');
+        const selectedTag = ref('All');
+        const selectedGuide = ref(null);
+        
+        const showSubscriptionModal = ref(false);
+        const showAuthModal = ref(false);
+        const showRequestDetailModal = ref(false);
+        const activeRequest = ref(null);
+
+        const authMode = ref('signup');
+        const subPlan = ref('monthly');
+        const toast = ref({ show: false, message: '' });
+
+        const makeAvatar = (emoji, background) => {
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><rect width="120" height="120" rx="28" fill="${background}"/><text x="60" y="78" font-size="64" text-anchor="middle">${emoji}</text></svg>`;
+          return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+        };
+        const avatarOptions = [
+          { label: 'Sunny', src: makeAvatar('😊', '#FEF3C7') },
+          { label: 'Explorer', src: makeAvatar('🧑🏻‍💼', '#DBEAFE') },
+          { label: 'Creative', src: makeAvatar('👩🏻‍🎨', '#FCE7F3') },
+          { label: 'Friendly', src: makeAvatar('🐼', '#D1FAE5') },
+          { label: 'Traveler', src: makeAvatar('🧳', '#EDE9FE') }
+        ];
+        const currentUser = ref(JSON.parse(localStorage.getItem('locaoo_user')) || null);
+        if (currentUser.value && !String(currentUser.value.avatar || '').startsWith('data:image/svg+xml')) {
+          currentUser.value.avatar = avatarOptions[0].src;
+        }
+        const authForm = ref({ email: '', nickname: '', password: '' });
+
+        // Become a Guide Form State with card toggle support
+        const becomeForm = ref({
+          name: '',
+          city: '',
+          rate: 25,
+          languagesStr: 'English, Mandarin',
+          cover: '', 
+          bio: '',
+          wechat: '',
+          whatsapp: '',
+          email: '',
+          subPlan: null // null 表示未选择，支持反选
+        });
+
+        const handleCoverUpload = (event) => {
+          const file = event.target.files && event.target.files[0];
+          if (!file) return;
+          if (!file.type.startsWith('image/')) {
+            showToast('Please choose an image file.');
+            event.target.value = '';
+            return;
+          }
+          if (file.size > 2 * 1024 * 1024) {
+            showToast('Image must be 2 MB or smaller.');
+            event.target.value = '';
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => { becomeForm.value.cover = reader.result; };
+          reader.onerror = () => showToast('Could not read this image. Please try again.');
+          reader.readAsDataURL(file);
+        };
+
+        const getRequestImage = (city) => {
+          const cityImages = {
+            Guangzhou: 'https://images.unsplash.com/photo-1508804185872-d7badad00f7d?w=900&auto=format&fit=crop',
+            Shanghai: 'https://images.unsplash.com/photo-1538428494232-9c0d8a3ab403?w=900&auto=format&fit=crop',
+            Beijing: 'https://images.unsplash.com/photo-1505761671935-60b3a7427bad?w=900&auto=format&fit=crop',
+            Yiwu: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=900&auto=format&fit=crop'
+          };
+          const key = Object.keys(cityImages).find(name => String(city || '').toLowerCase().includes(name.toLowerCase()));
+          return cityImages[key] || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=900&auto=format&fit=crop';
+        };
+
+        // 卡片点击反选逻辑
+        const handleCardToggle = (planType) => {
+          if (becomeForm.value.subPlan === planType) {
+            becomeForm.value.subPlan = null; // 再次点击取消选中
+          } else {
+            becomeForm.value.subPlan = planType;
+          }
+        };
+
+        const analytics = ref(JSON.parse(localStorage.getItem('locaoo_analytics')) || {
+          pv: 120, contactClicks: 45, subscriptions: 8
+        });
+
+        const hotCities = [
+          { name: "Dongguan", searchKey: "Dongguan", desc: "Global Manufacturing Hub" },
+          { name: "Jingdezhen", searchKey: "Jingdezhen", desc: "Porcelain Capital" },
+          { name: "Yiwu", searchKey: "Yiwu", desc: "International Shopping Paradise" },
+          { name: "Chaoshan", searchKey: "Chaoshan", desc: "Land of Beef Hotpot" },
+          { name: "Harbin", searchKey: "Harbin", desc: "Ice Sculpture City" },
+          { name: "Dali", searchKey: "Dali", desc: "Romantic City" }
+        ];
+
+        const tagsList = ["All", "Shopping", "Dining", "Business Negotiations", "Medical Treatment", "Attending Exhibitions"];
+
+        const guides = ref(JSON.parse(localStorage.getItem('locaoo_guides')) || [
+          {
+            id: 1,
+            name: "Elena Rostova",
+            city: "Shanghai, China",
+            avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300",
+            cover: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=1200",
+            rate: 25,
+            rating: 4.9,
+            reviewsCount: 38,
+            bio: "Hello! Experienced English & Russian guide in Shanghai for procurement and market tours.",
+            languages: ["English", "Russian", "Mandarin"],
+            tags: ["Shopping", "Business Negotiations", "Dining"],
+            isStarGuide: true,
+            verified: true,
+            contacts: { wechat: "elena_sh_guide", whatsapp: "+86 138 0000 0001", email: "elena@locaoo.com" },
+            activityStatus: { text: "Online Now", color: "text-green-500" }
+          },
+          {
+            id: 2,
+            name: "Kenji Sato",
+            city: "Beijing, China",
+            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300",
+            cover: "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=1200",
+            rate: 30,
+            rating: 5.0,
+            reviewsCount: 52,
+            bio: "Bilingual guide based in Beijing. Specialized in trade fairs and exhibitions.",
+            languages: ["English", "Japanese", "Mandarin"],
+            tags: ["Attending Exhibitions", "Business Negotiations"],
+            isStarGuide: false,
+            verified: true,
+            contacts: { wechat: "kenji_bj_local", whatsapp: "+86 138 0000 0002", email: "kenji@locaoo.com" },
+            activityStatus: { text: "Active Today", color: "text-amber-500" }
+          },
+          {
+            id: 3,
+            name: "David Chen",
+            city: "Yiwu, China",
+            avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300",
+            cover: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1200",
+            rate: 35,
+            rating: 4.9,
+            reviewsCount: 41,
+            bio: "Yiwu market procurement and factory tour specialist.",
+            languages: ["English", "Mandarin"],
+            tags: ["Business Negotiations", "Shopping"],
+            isStarGuide: true,
+            verified: true,
+            contacts: { wechat: "yiwu_trade_pro", whatsapp: "+86 138 0000 0004", email: "david@locaoo.com" },
+            activityStatus: { text: "Active Yesterday", color: "text-gray-400" }
+          }
+        ]);
+
+        const requests = ref(JSON.parse(localStorage.getItem('locaoo_requests')) || [
+          {
+            id: 101,
+            authorEmail: 'buyer@example.com',
+            authorName: 'Mark S.',
+            title: 'Looking for a translator & negotiator for Canton Fair in Guangzhou',
+            city: 'Guangzhou',
+            travelersCount: 2,
+            budget: 200,
+            date: 'Oct 15 - Oct 18, 2026',
+            description: 'We need an experienced local guide to assist with electronics procurement.',
+            wechat: 'mark_canton_2026',
+            whatsapp: '+1 415 555 2671',
+            email: 'mark@buyerimport.com'
+          }
+        ]);
+
+        const newRequest = ref({ title: '', city: '', travelersCount: 1, budget: '', date: '', description: '', wechat: '', whatsapp: '', email: '' });
+
+        const filteredGuides = computed(() => {
+          return guides.value.filter(g => {
+            const kw = searchKeyword.value.toLowerCase().trim();
+            const matchesSearch = !kw || g.city.toLowerCase().includes(kw) || g.name.toLowerCase().includes(kw);
+            const matchesTag = selectedTag.value === 'All' || g.tags.includes(selectedTag.value);
+            return matchesSearch && matchesTag;
+          });
+        });
+
+        const myRequests = computed(() => {
+          if (!currentUser.value) return [];
+          return requests.value.filter(r => r.authorEmail === currentUser.value.email);
+        });
+
+        const t = (key) => {
+          return (i18n[currentLang.value] && i18n[currentLang.value][key]) || i18n['en'][key] || key;
+        };
+
+        const showToast = (msg) => {
+          toast.value = { show: true, message: msg };
+          setTimeout(() => { toast.value.show = false; }, 3000);
+        };
+
+        const copyToClipboard = (text) => {
+          if (!text) return;
+          navigator.clipboard.writeText(text);
+          showToast('Copied to clipboard!');
+        };
+
+        const trackEvent = (type) => {
+          if (type === 'pv') analytics.value.pv++;
+          if (type === 'contact') analytics.value.contactClicks++;
+          if (type === 'sub') analytics.value.subscriptions++;
+          localStorage.setItem('locaoo_analytics', JSON.stringify(analytics.value));
+        };
+
+        const navigateTo = (page, guideId = null) => {
+          activePage.value = page;
+          if (page === 'profile' && guideId) {
+            selectedGuide.value = guides.value.find(g => g.id === guideId) || null;
+          }
+          if (page === 'admin') {
+            setTimeout(renderAdminChart, 100);
+          }
+          trackEvent('pv');
+          window.scrollTo(0, 0);
+        };
+
+        const handleRemindGuide = (guide) => {
+          trackEvent('contact');
+          showToast('Reminder sent successfully! Added to daily email digest and backend notification.');
+        };
+
+        const openRequestDetailModal = (req) => {
+          activeRequest.value = req;
+          showRequestDetailModal.value = true;
+        };
+
+        const openSubscriptionModal = () => {
+          showSubscriptionModal.value = true;
+        };
+
+        const confirmStarSubscription = () => {
+          if (!currentUser.value) {
+            showSubscriptionModal.value = false;
+            openAuthModal('login');
+            return;
+          }
+          currentUser.value.isStarGuide = true;
+          localStorage.setItem('locaoo_user', JSON.stringify(currentUser.value));
+          trackEvent('sub');
+          showSubscriptionModal.value = false;
+          showToast('Congratulations! You are now upgraded to Star Locals ⭐');
+        };
+
+        const openAuthModal = (mode) => {
+          authMode.value = mode;
+          showAuthModal.value = true;
+        };
+
+        const handleAuthSubmit = () => {
+          const userObj = {
+            email: authForm.value.email,
+            nickname: authForm.value.nickname || authForm.value.email.split('@')[0],
+            avatar: avatarOptions[0].src,
+            isStarGuide: false,
+            isAdmin: authForm.value.email.includes('admin')
+          };
+          currentUser.value = userObj;
+          localStorage.setItem('locaoo_user', JSON.stringify(userObj));
+          showAuthModal.value = false;
+          showToast('Welcome to locaoo!');
+        };
+
+        const handleLogout = () => {
+          currentUser.value = null;
+          localStorage.removeItem('locaoo_user');
+          navigateTo('home');
+          showToast('Logged out successfully.');
+        };
+
+        const saveUserProfile = () => {
+          localStorage.setItem('locaoo_user', JSON.stringify(currentUser.value));
+          showToast('Profile saved!');
+        };
+
+        const submitRequest = () => {
+          if (!currentUser.value) {
+            openAuthModal('login');
+            return;
+          }
+          const reqObj = {
+            id: Date.now(),
+            authorEmail: currentUser.value.email,
+            authorName: currentUser.value.nickname,
+            ...newRequest.value
+          };
+          requests.value.unshift(reqObj);
+          localStorage.setItem('locaoo_requests', JSON.stringify(requests.value));
+          newRequest.value = { title: '', city: '', travelersCount: 1, budget: '', date: '', description: '', wechat: '', whatsapp: '', email: '' };
+          showToast('Request posted successfully!');
+          navigateTo('requests');
+        };
+
+        const submitBecomeGuide = () => {
+          if (!becomeForm.value.cover) {
+            showToast('Please upload a cover photo before registering.');
+            return;
+          }
+          const hasStar = Boolean(becomeForm.value.subPlan);
+          const newGuideObj = {
+            id: Date.now(),
+            name: becomeForm.value.name,
+            city: becomeForm.value.city,
+            avatar: avatarOptions[0].src,
+            cover: becomeForm.value.cover,
+            rate: Number(becomeForm.value.rate),
+            rating: 5.0,
+            reviewsCount: 1,
+            bio: becomeForm.value.bio,
+            languages: becomeForm.value.languagesStr.split(',').map(s => s.trim()).filter(Boolean),
+            tags: ["Shopping", "Business Negotiations"],
+            isStarGuide: hasStar,
+            verified: true,
+            contacts: {
+              wechat: becomeForm.value.wechat,
+              whatsapp: becomeForm.value.whatsapp,
+              email: becomeForm.value.email
+            },
+            activityStatus: { text: "Online Now", color: "text-green-500" }
+          };
+
+          guides.value.unshift(newGuideObj);
+          localStorage.setItem('locaoo_guides', JSON.stringify(guides.value));
+
+          if (currentUser.value) {
+            currentUser.value.isStarGuide = hasStar;
+            localStorage.setItem('locaoo_user', JSON.stringify(currentUser.value));
+          }
+
+          if (hasStar) {
+            trackEvent('sub');
+          }
+
+          showToast('Guide profile registered successfully!');
+          navigateTo('home');
+        };
+
+        let chartInstance = null;
+        const renderAdminChart = () => {
+          const ctx = document.getElementById('adminChart');
+          if (!ctx) return;
+          if (chartInstance) chartInstance.destroy();
+
+          chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: ['Page Views (PV)', 'Contact Clicks', 'Requests Posted', 'Star Subscriptions'],
+              datasets: [{
+                label: 'Platform Metrics',
+                data: [analytics.value.pv, analytics.value.contactClicks, requests.value.length, analytics.value.subscriptions],
+                backgroundColor: ['#4f46e5', '#f43f5e', '#9333ea', '#f59e0b']
+              }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+          });
+        };
+
+        onMounted(() => {
+          trackEvent('pv');
+        });
+
+        return {
+          activePage, currentLang, searchKeyword, selectedTag, selectedGuide,
+          showSubscriptionModal, showAuthModal, showRequestDetailModal, activeRequest,
+          authMode, subPlan, toast, currentUser, authForm, becomeForm, handleCardToggle,
+          avatarOptions, handleCoverUpload, getRequestImage,
+          analytics, hotCities, tagsList, guides, requests, newRequest,
+          filteredGuides, myRequests, t, navigateTo, handleRemindGuide,
+          copyToClipboard, trackEvent, openRequestDetailModal,
+          openSubscriptionModal, confirmStarSubscription, openAuthModal,
+          handleAuthSubmit, handleLogout, saveUserProfile, submitRequest, submitBecomeGuide
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
